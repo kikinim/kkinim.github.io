@@ -1,3 +1,6 @@
+> [!NOTE]  
+> This Jekyll Theme is still working fine but it is not maintained anymore. Jekyll LibDoc has become [Eleventy LibDoc](https://github.com/ita-design-system/eleventy-libdoc)
+
 # Jekyll LibDoc
 
 **A Jekyll documentation theme with built-in search and playground**
