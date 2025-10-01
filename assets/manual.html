@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>Vacuum Simulation Manual (v1 & v2)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --fg: #0f172a; --muted:#475569; --bg:#ffffff;
+      --accent:#1d4ed8; --ok:#059669; --warn:#f59e0b; --err:#dc2626; --chip:#eef2ff;
+      --border:#e2e8f0; --code:#0b1020; --code-bg:#0b1020; --kbd-bg:#f1f5f9;
+    }
+    html, body { background: var(--bg); color: var(--fg); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Noto Sans, Helvetica, Arial, Apple Color Emoji, Segoe UI Emoji; line-height: 1.65; }
+    main { max-width: 1000px; margin: 40px auto; padding: 0 20px; }
+    h1 { font-size: 28px; margin: 0 0 8px; }
+    h2 { font-size: 22px; margin-top: 28px; border-top: 1px solid var(--border); padding-top: 20px; }
+    h3 { font-size: 18px; margin-top: 20px; }
+    p, li { color: var(--fg); }
+    .muted { color: var(--muted); }
+    .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+    .card { border:1px solid var(--border); border-radius: 12px; padding: 16px; background:#fff; }
+    .chip { display:inline-block; padding:2px 8px; border-radius:999px; background:var(--chip); color:#3730a3; font-size:12px; font-weight:600; border:1px solid #c7d2fe; }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    pre { background:#0b1220; color:#d1e7ff; padding:14px; border-radius:10px; overflow:auto; border:1px solid #0b2942; }
+    kbd { background:var(--kbd-bg); border:1px solid #cbd5e1; border-bottom-width:2px; padding:0 6px; border-radius:6px; font-weight:700; }
+    table { width:100%; border-collapse: collapse; }
+    th, td { border:1px solid var(--border); padding:8px 10px; text-align:left; }
+    .ok { color:var(--ok); } .warn { color:var(--warn); } .err { color:var(--err); }
+    .toc a { text-decoration:none; color:var(--accent); }
+    .small { font-size: 13px; }
+    .kbdrow { display:flex; gap:12px; flex-wrap:wrap; }
+    .highlight { background: #f8fafc; border:1px dashed var(--border); padding:12px; border-radius:10px; }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Vacuum Simulation Manual</h1>
+    <p class="muted">v1(legacy) &amp; v2(standard) 백엔드 + 프런트 사용 설명서</p>
+    <div class="highlight small">
+      <b>요약:</b> 프런트는 <span class="chip">/api</span> (v1), <span class="chip">/api-v2</span> (v2)로 호출하거나,
+      개발 중엔 절대경로 <code>http://127.0.0.1:8000</code>, <code>http://127.0.0.1:8001</code>로 직접 호출해도 됩니다.
+      배포 시엔 Nginx/리버스프록시에서 경로를 백엔드로 라우팅하세요.
+    </div>
+  </header>
+
+  <section class="toc">
+    <h2>목차</h2>
+    <ul>
+      <li><a href="#arch">1) 아키텍처 & 포트</a></li>
+      <li><a href="#endpoints-v1">2) 엔드포인트(v1)</a></li>
+      <li><a href="#endpoints-v2">3) 엔드포인트(v2)</a></li>
+      <li><a href="#schemas">4) 요청/응답 스키마</a></li>
+      <li><a href="#frontend">5) 프런트 연동(fetch 예시)</a></li>
+      <li><a href="#curl">6) cURL 테스트</a></li>
+      <li><a href="#vite">7) Vite 프록시/미리보기</a></li>
+      <li><a href="#cors">8) CORS/보안</a></li>
+      <li><a href="#errors">9) 자주 나는 오류 & 해결</a></li>
+      <li><a href="#run">10) 실행/배포 체크리스트</a></li>
+      <li><a href="#changelog">11) 변경 이력</a></li>
+    </ul>
+  </section>
+
+  <section id="arch">
+    <h2>1) 아키텍처 & 포트</h2>
+    <div class="grid">
+      <div class="card">
+        <h3>프런트 (Vite)</h3>
+        <ul>
+          <li>개발 서버: <code>http://localhost:80</code> (프로젝트에서 설정)</li>
+          <li>Vite 프록시(개발): <span class="chip">/api → :8000</span>, <span class="chip">/api-v2 → :8001</span></li>
+          <li class="small muted">※ <b>vite preview</b>는 프록시 미지원 – 배포 환경과 동일하게 리버스프록시 필요</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>백엔드 v1 (legacy)</h3>
+        <ul>
+          <li>프로세스: <code>uvicorn main:app</code> (디렉토리 <b>backend/</b>)</li>
+          <li>포트: <code>8000</code></li>
+          <li>데이터: <code>backend/data/pumpdb.csv</code> (첫 열=압력, 열=펌프)</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>백엔드 v2 (standard)</h3>
+        <ul>
+          <li>프로세스: <code>uvicorn main:app</code> (디렉토리 <b>backend-v2/</b>)</li>
+          <li>포트: <code>8001</code></li>
+          <li>데이터: <code>backend-v2/data/pumpdb.csv</code> (v1과 동일 포맷)</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="endpoints-v1">
+    <h2>2) 엔드포인트 (v1)</h2>
+    <table>
+      <thead><tr><th>메서드</th><th>경로</th><th>설명</th></tr></thead>
+      <tbody>
+        <tr><td>GET</td><td><code>/api/health</code></td><td>헬스체크</td></tr>
+        <tr><td>POST</td><td><code>/api/calculate</code></td><td>메인 계산 (호환용 <code>/calculate</code>도 수신)</td></tr>
+      </tbody>
+    </table>
+    <p class="small muted">※ v1은 단일 P–Q 곡선(평균)만 반환. (Tornado/Contribution/3σ 없음)</p>
+  </section>
+
+  <section id="endpoints-v2">
+    <h2>3) 엔드포인트 (v2)</h2>
+    <table>
+      <thead><tr><th>메서드</th><th>경로</th><th>설명</th></tr></thead>
+      <tbody>
+        <tr><td>GET</td><td><code>/health</code></td><td>헬스체크</td></tr>
+        <tr><td>POST</td><td><code>/api-v2/calculate</code></td><td>메인 계산(평균, 3σ, Tornado, Contribution)</td></tr>
+        <tr><td>GET</td><td><code>/visit.gif</code></td><td>1x1 픽셀(접속 로깅)</td></tr>
+        <tr><td>GET</td><td><code>/visits?limit=20</code></td><td>최근 접속 로그(디버그용)</td></tr>
+      </tbody>
+    </table>
+    <p class="small muted">※ v2도 호환용 <code>/calculate</code> 경로를 열어둘 수 있으나, 프런트는 <b>/api-v2/calculate</b> 사용 권장.</p>
+  </section>
+
+  <section id="schemas">
+    <h2>4) 요청/응답 스키마</h2>
+    <h3>요청 공통(프런트에서 보내는 예)</h3>
+    <pre>{
+  "a": 1,
+  "b": 40,
+  "pump": "IXH3050H",
+  "gas": "N2",          // v2: 사용, v1: 무시
+  "T_in": 540,          // v2: 사용, v1: 무시
+  "T_w": 453,           // v2: 사용, v1: 무시
+  "conductance": [
+    { "type": "Circular Type", "length_cm": 100, "diameter_cm": 10, "description": "L=100cm, D=10cm" },
+    { "type": "Elbow", "diameter_cm": 10, "angle_deg": 90, "description": "D=10cm, Angle=90°" }
+  ],
+  "wantBands": true,        // v2 전용
+  "wantTornado": true,      // v2 전용
+  "wantContribution": true  // v2 전용
+}</pre>
+
+    <div class="grid">
+      <div class="card">
+        <h3>응답(v1)</h3>
+        <p>단일 배열:</p>
+        <pre>[
+  { "x": 0.1, "y": 3.21 },
+  { "x": 0.12, "y": 3.50 },
+  ...
+]</pre>
+      </div>
+      <div class="card">
+        <h3>응답(v2)</h3>
+        <p>확장 필드 포함:</p>
+        <pre>{
+  "curve":   [ { "x": 0.1, "y": 3.21 }, ... ],
+  "bandLow": [ { "x": 0.1, "y": 2.8 },  ... ],
+  "bandHigh":[ { "x": 0.1, "y": 3.7 },  ... ],
+  "tornado": [ { "param":"Total length","S_norm":0.31,"unit":"%" }, ... ],
+  "contrib": [ { "label":"Pipe L=100cm, D=10cm","share_pct":62.4 }, ... ]
+}</pre>
+      </div>
+    </div>
+  </section>
+
+  <section id="frontend">
+    <h2>5) 프런트 연동 (fetch)</h2>
+    <h3>로컬 개발 – 절대경로로 직접 호출(프록시 우회)</h3>
+    <pre>// v1
+const res1 = await fetch("http://127.0.0.1:8000/api/calculate", { ... });
+// v2
+const res2 = await fetch("http://127.0.0.1:8001/api-v2/calculate", { ... });</pre>
+
+    <h3>로컬 개발 – Vite 프록시 사용</h3>
+    <pre>// vite.config.js (개발 서버일 때만 동작)
+server: {
+  proxy: {
+    "/api":    { target: "http://127.0.0.1:8000", changeOrigin: true },
+    "/api-v2": { target: "http://127.0.0.1:8001", changeOrigin: true },
+  }
+}
+
+// 프런트 코드
+await fetch("/api/calculate", { ... })      // v1
+await fetch("/api-v2/calculate", { ... })   // v2</pre>
+
+    <p class="small warn"><b>주의:</b> <code>vite preview</code>는 위 프록시가 <u>동작하지 않습니다</u>. 배포 환경처럼 Nginx 등으로 라우팅해야 합니다.</p>
+  </section>
+
+  <section id="curl">
+    <h2>6) cURL 테스트</h2>
+    <div class="grid">
+      <div class="card">
+        <h3>헬스체크</h3>
+        <pre># v1
+curl -s http://127.0.0.1:8000/api/health
+
+# v2
+curl -s http://127.0.0.1:8001/health</pre>
+      </div>
+      <div class="card">
+        <h3>계산</h3>
+        <pre># v1
+curl -i -X POST http://127.0.0.1:8000/api/calculate \
+  -H 'content-type: application/json' \
+  -d '{"a":1,"b":40,"pump":"IXH3050H","conductance":[{"type":"Circular Type","length_cm":100,"diameter_cm":10,"description":"L=100cm, D=10cm"}]}'
+
+# v2
+curl -i -X POST http://127.0.0.1:8001/api-v2/calculate \
+  -H 'content-type: application/json' \
+  -d '{"a":1,"b":40,"pump":"IXH3050H","gas":"N2","T_in":540,"T_w":453,
+       "conductance":[{"type":"Circular Type","length_cm":100,"diameter_cm":10,"description":"L=100cm, D=10cm"}],
+       "wantBands":true,"wantTornado":true,"wantContribution":true}'</pre>
+      </div>
+    </div>
+    <p class="small muted">사내 프록시가 잡히면 403(Access Denied) 가능. <code>curl</code>에 <code>--noproxy localhost,127.0.0.1</code>를 주거나 환경변수 정리.</p>
+  </section>
+
+  <section id="vite">
+    <h2>7) Vite 프록시/미리보기</h2>
+    <ul>
+      <li><b>개발서버</b>에서는 <code>vite.config.js</code>의 <code>server.proxy</code>가 동작 → <span class="chip">/api</span>, <span class="chip">/api-v2</span> 자동 전달.</li>
+      <li><b>vite preview</b> 또는 <b>빌드 산출물 정적 서빙</b>은 프록시 없음 → <b>절대경로</b>로 백엔드에 쏘거나(개발), <b>Nginx</b>로 라우팅 구성(배포).</li>
+    </ul>
+  </section>
+
+  <section id="cors">
+    <h2>8) CORS/보안</h2>
+    <ul>
+      <li>개발 중 CORS는 임시로 <code>allow_origins=["*"]</code> 허용 가능. 배포에선 프런트 도메인/포트만 허용.</li>
+      <li>프런트가 절대경로로 <code>http://12.54.83.52:8001</code> 호출 시, v2 CORS에 해당 오리진을 포함.</li>
+    </ul>
+  </section>
+
+  <section id="errors">
+    <h2>9) 자주 나는 오류 & 해결</h2>
+    <ul>
+      <li><b class="err">404 Not Found</b>:
+        <ul>
+          <li>백엔드 경로/포트를 잘못 침 (예: <code>/api-v2/calculate</code>를 v1 서버에 쏜 경우).</li>
+          <li>uvicorn 다른 디렉토리에서 실행해서 <code>main.py</code>가 다른 것인 경우. <b>반드시 폴더 진입 후</b> 실행.</li>
+        </ul>
+      </li>
+      <li><b class="err">403 Forbidden (Proxy)</b>:
+        <ul>
+          <li>사내 프록시가 <code>curl</code> 트래픽을 가로채는 중. <code>--noproxy</code> 사용 또는 환경변수 정리.</li>
+        </ul>
+      </li>
+      <li><b class="err">ECONNREFUSED</b>:
+        <ul>
+          <li>해당 포트에서 uvicorn이 안 떠 있음. 서버 가동/포트 확인.</li>
+        </ul>
+      </li>
+      <li><b class="err">ECONNRESET</b>:
+        <ul>
+          <li>프록시/중간 네트워크가 연결을 리셋. 절대경로로 직접 쏘거나 프록시 설정 확인.</li>
+        </ul>
+      </li>
+      <li><b class="warn">모델 바꿔도 같은 값이 나옴</b>:
+        <ul>
+          <li><code>pumpdb.csv</code>의 컬럼명이 프런트에서 보낸 <code>pump</code>와 정확히 일치하는지 확인.</li>
+          <li>v1/v2가 다른 CSV를 보고 있지 않은지(폴더 경로) 확인.</li>
+        </ul>
+      </li>
+    </ul>
+  </section>
+
+  <section id="run">
+    <h2>10) 실행/배포 체크리스트</h2>
+    <div class="grid">
+      <div class="card">
+        <h3>로컬 실행</h3>
+        <pre># v1
+cd backend
+uvicorn main:app --reload --host 127.0.0.1 --port 8000
+
+# v2
+cd backend-v2
+uvicorn main:app --reload --host 127.0.0.1 --port 8001
+
+# Frontend (개발)
+cd frontend
+npm i
+npm run dev   # http://localhost:80</pre>
+      </div>
+      <div class="card">
+        <h3>배포 힌트</h3>
+        <ul>
+          <li>프런트: 정적 빌드 산출물(<code>dist/</code>) 배포.</li>
+          <li>백엔드: Uvicorn/Gunicorn + Nginx 리버스 프록시.</li>
+          <li>Nginx 예: <span class="small">
+            <pre>location /api/    { proxy_pass http://127.0.0.1:8000; }
+location /api-v2/ { proxy_pass http://127.0.0.1:8001; }</pre>
+          </span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="changelog">
+    <h2>11) 변경 이력</h2>
+    <ul class="small">
+      <li><b>25.09.01</b> v2 첫 배포</li>
+      <li><b>25.09.15</b> 명칭 변경(“Vacuum Simulation 표준”)</li>
+      <li><b>25.09.22</b> v2 기술 설명 추가(3σ/Tornado/Contribution)</li>
+    </ul>
+  </section>
+
+  <!-- v2 접속 로깅(선택): 페이지 로드시 1x1 픽셀 호출 -->
+  <!-- 배포 환경에서만 활성화 권장 -->
+  <!-- <img src="http://127.0.0.1:8001/visit.gif" alt="" style="width:1px;height:1px;border:0;" /> -->
+
+  <footer class="small muted" style="margin-top:32px">
+    제작,문의 : 고도율님 · contributor 조재영님
+  </footer>
+</main>
+</body>
+</html>
